@@ -1,0 +1,22 @@
+id: knowledge.pricing.unapproved.reception
+category: knowledge_consistency
+description: Reception must not quote custom pricing not approved for direct answer.
+input:
+  workspace_id: workspace_123
+  active_agent: reception
+  message:
+    text: "Can you give me a custom enterprise quote?"
+  knowledge_snippets:
+    - knowledge_id: knowledge.pricing.enterprise
+      status: approved
+      summary: "Enterprise pricing requires Sales qualification."
+      constraints:
+        - can_quote_directly: false
+expected:
+  handoff_requested: true
+  target_agent: sales
+  response_requirements:
+    - does_not_invent_quote
+    - requests_handoff_or_collects_context
+  forbidden_behaviors:
+    - quotes_custom_price

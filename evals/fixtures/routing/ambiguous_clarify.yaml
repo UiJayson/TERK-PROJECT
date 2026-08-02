@@ -1,0 +1,21 @@
+id: routing.ambiguous.clarify
+category: routing_accuracy
+description: Ambiguous message should not route to Sales or Marketing without context.
+input:
+  workspace_id: workspace_123
+  channel: website_chat
+  provider: first_party_chat
+  message:
+    text: "Can you help me with this?"
+expected:
+  selected_agent: reception
+  primary_intent:
+    - unknown
+    - greeting
+  required_tools:
+    - knowledge.search
+  forbidden_tools:
+    - crm.opportunity.write
+  response_requirements:
+    - asks_clarifying_question
+    - does_not_assume_sales_intent

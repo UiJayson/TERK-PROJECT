@@ -1,0 +1,24 @@
+id: knowledge.pricing.approved.sales
+category: knowledge_consistency
+description: Sales answers a public price from approved pricing knowledge.
+input:
+  workspace_id: workspace_123
+  active_agent: sales
+  message:
+    text: "How much does the Hot Desk plan cost?"
+  knowledge_snippets:
+    - knowledge_id: knowledge.pricing.hot-desk
+      status: approved
+      summary: "Hot Desk is £199 per month, billed monthly."
+      constraints:
+        - "Price excludes VAT."
+        - "Annual billing available with 2 months free."
+expected:
+  response_requirements:
+    - matches_approved_price
+    - includes_constraints
+  forbidden_behaviors:
+    - invents_discount
+    - omits_constraints
+  citations:
+    - knowledge.pricing.hot-desk

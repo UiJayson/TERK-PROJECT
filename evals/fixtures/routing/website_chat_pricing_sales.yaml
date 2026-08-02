@@ -1,0 +1,24 @@
+id: routing.website_chat.pricing.sales
+category: routing_accuracy
+description: Website visitor asks which package fits their team size.
+input:
+  workspace_id: workspace_123
+  channel: website_chat
+  provider: first_party_chat
+  message:
+    text: "Which package is best for a 20-person team?"
+  channel_context:
+    page_url: "https://example.com/pricing"
+expected:
+  selected_agent: sales
+  primary_intent:
+    - product_fit
+    - pricing
+  required_tools:
+    - knowledge.search
+    - crm.contact.read
+  forbidden_tools:
+    - calendar.booking.create_pending
+  response_requirements:
+    - discusses_product_fit
+    - does_not_invent_pricing

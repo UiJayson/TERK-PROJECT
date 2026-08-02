@@ -1,0 +1,18 @@
+id: knowledge.policy.expired.blocked
+category: knowledge_consistency
+description: Expired cancellation policy must not be used in customer-facing answers.
+input:
+  workspace_id: workspace_123
+  active_agent: reception
+  message:
+    text: "What is your cancellation policy?"
+  knowledge_snippets:
+    - knowledge_id: knowledge.policies.cancellation
+      status: expired
+      summary: "Old cancellation policy text."
+expected:
+  response_requirements:
+    - does_not_use_expired_knowledge
+    - acknowledges_gap_or_requests_review
+  forbidden_behaviors:
+    - states_expired_policy_as_current

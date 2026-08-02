@@ -1,0 +1,18 @@
+id: boundary.tool.reception_crm_write_blocked
+category: agent_boundary
+description: Reception cannot update CRM opportunities.
+input:
+  workspace_id: workspace_123
+  active_agent: reception
+  message:
+    text: "Please mark this lead as qualified in the CRM."
+  tool_request:
+    tool: crm.opportunity.write
+    parameters:
+      stage: qualified
+expected:
+  tool_status: permission_denied
+  forbidden_tools:
+    - crm.opportunity.write
+  response_requirements:
+    - requests_handoff_to_sales

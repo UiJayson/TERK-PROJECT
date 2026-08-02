@@ -1,0 +1,991 @@
+openapi: 3.1.0
+info:
+  title: AI Business OS API
+  version: 0.1.0
+  description: |
+    Multi-tenant AI-agents SaaS API (Netlify Functions).
+    Authenticate with a Bearer JWT (from /api/auth/login) or the `aios_session` cookie.
+    Human-readable reference: API.md at the repo root.
+servers:
+  - url: https://harbor-ai-business-os.netlify.app
+    description: Production
+  - url: http://localhost:5173
+    description: Local dev (Vite + Netlify functions emulation)
+
+security:
+  - bearerAuth: []
+  - cookieAuth: []
+
+tags:
+  - name: Auth
+  - name: Agents
+  - name: Chat
+  - name: Knowledge
+  - name: Conversations
+  - name: Leads
+  - name: Analytics
+  - name: Settings
+  - name: Notifications
+  - name: Channels
+  - name: Billing
+  - name: Marketing
+  - name: BI
+  - name: Workflows
+  - name: Observability
+  - name: Webhooks
+
+paths:
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Create account + workspace, start session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, companyName]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                companyName: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/AuthSuccess" }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/AuthSuccess" }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Clear session cookie
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Current session (re-issues a fresh 24h token)
+      responses:
+        "200": { $ref: "#/components/responses/AuthSuccess" }
+        "401": { $ref: "#/components/responses/Error" }
+
+  /api/auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request password reset email (1h single-use link)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "200":
+          description: Generic acknowledgement (no account enumeration)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  resetUrl: { type: string, description: Non-production only }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /api/auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Set a new password with a reset token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: { type: string }
+                password: { type: string, minLength: 8 }
+      responses:
+        "200": { description: Password updated; existing sessions invalidated }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /api/agents:
+    get:
+      tags: [Agents]
+      summary: List the three specialist agents with workspace config
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents:
+                    type: array
+                    items: { $ref: "#/components/schemas/AgentView" }
+        "401": { $ref: "#/components/responses/Error" }
+
+  /api/agents/{id}:
+    patch:
+      tags: [Agents]
+      summary: Enable/disable an agent or edit its notes (owner/admin)
+      parameters: [{ $ref: "#/components/parameters/AgentId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled: { type: boolean }
+                notes: { type: string, maxLength: 2000 }
+      responses:
+        "200":
+          description: Updated agent + full list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent: { $ref: "#/components/schemas/AgentView" }
+                  agents:
+                    type: array
+                    items: { $ref: "#/components/schemas/AgentView" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /api/agents/{id}/test:
+    post:
+      tags: [Agents]
+      summary: Send a test message forced to one agent (owner/admin)
+      parameters: [{ $ref: "#/components/parameters/AgentId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message: { type: string }
+                conversation_id: { type: string }
+                history: { $ref: "#/components/schemas/ChatHistory" }
+      responses:
+        "200":
+          description: Agent reply
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChatResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /api/chat:
+    post:
+      tags: [Chat]
+      summary: Conversational endpoint (dashboard, demo, and embed widget)
+      description: |
+        Workspace resolution: authenticated session, else `public_key`, else legacy
+        demo mode. Rate limited to 30 messages/min/IP. CORS `*`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message: { type: string, maxLength: 4000 }
+                history: { $ref: "#/components/schemas/ChatHistory" }
+                state: { $ref: "#/components/schemas/ConversationState" }
+                page_url: { type: string }
+                conversation_id: { type: string }
+                channel:
+                  type: string
+                  enum: [website, whatsapp, instagram, email, dashboard]
+                public_key: { type: string, maxLength: 100 }
+      responses:
+        "200":
+          description: Agent reply
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChatResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { description: Invalid workspace key }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /api/knowledge:
+    get:
+      tags: [Knowledge]
+      summary: List/search knowledge items, or fetch core shared files
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: section, in: query, schema: { type: string } }
+        - { name: files, in: query, schema: { type: string, enum: ["1", "true"] } }
+        - name: semantic
+          in: query
+          schema: { type: string, enum: ["1"] }
+          description: With q, run retrieval as agents would see it (top 5)
+      responses:
+        "200":
+          description: Items, files map, or retrieval results depending on query
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: "#/components/schemas/KnowledgeItem" }
+                  - type: object
+                    properties:
+                      files:
+                        type: object
+                        additionalProperties: { type: string }
+                  - type: object
+                    properties:
+                      results: { type: array, items: { type: object } }
+    post:
+      tags: [Knowledge]
+      summary: Create an item, or write a core shared file (owner/admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [title, content, type]
+                  properties:
+                    title: { type: string, maxLength: 500 }
+                    content: { type: string }
+                    type: { type: string }
+                    section: { type: string }
+                    tags:
+                      oneOf: [{ type: string }, { type: array, items: { type: string } }]
+                    imageUrl: { type: [string, "null"] }
+                    price: { type: [number, "null"] }
+                    currency: { type: [string, "null"] }
+                    stockStatus: { type: [string, "null"] }
+                - type: object
+                  required: [path, content]
+                  properties:
+                    path: { type: string, description: One of the fixed core shared file paths }
+                    content: { type: string }
+      responses:
+        "201":
+          description: Item created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item: { $ref: "#/components/schemas/KnowledgeItem" }
+        "200": { description: Shared file written }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
+  /api/knowledge/{id}:
+    patch:
+      tags: [Knowledge]
+      summary: Update a knowledge item (owner/admin)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: Updated item }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Knowledge]
+      summary: Delete a knowledge item (owner/admin)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+
+  /api/knowledge/upload:
+    post:
+      tags: [Knowledge]
+      summary: Upload a PDF/DOCX/TXT document (max 8 MB, owner/admin)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, title, type]
+              properties:
+                file: { type: string, format: binary }
+                title: { type: string, maxLength: 500 }
+                type:
+                  type: string
+                  enum: [product, service, pricing, faq, policy, document]
+                tags: { type: string }
+      responses:
+        "201":
+          description: Document indexed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item: { $ref: "#/components/schemas/KnowledgeItem" }
+                  indexed:
+                    type: object
+                    properties:
+                      chunksIndexed: { type: integer }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /api/conversations:
+    get:
+      tags: [Conversations]
+      summary: List conversations (keyset-paginated, ETag)
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Status" }
+      responses:
+        "200":
+          description: Page of conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversations: { type: array, items: { type: object } }
+                  nextCursor: { type: [string, "null"] }
+                  hasMore: { type: boolean }
+        "304": { description: Not modified (If-None-Match) }
+
+  /api/conversations/{id}/messages:
+    get:
+      tags: [Conversations]
+      summary: List messages in a conversation (keyset-paginated)
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+      responses:
+        "200":
+          description: Page of messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages: { type: array, items: { type: object } }
+                  nextCursor: { type: [string, "null"] }
+                  hasMore: { type: boolean }
+
+  /api/conversations/{id}/resolve:
+    post:
+      tags: [Conversations]
+      summary: Mark a conversation resolved (owner/admin)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: Resolved }
+        "403": { $ref: "#/components/responses/Error" }
+
+  /api/leads:
+    get:
+      tags: [Leads]
+      summary: List leads (keyset-paginated, ETag)
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Status" }
+      responses:
+        "200":
+          description: Page of leads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leads: { type: array, items: { type: object } }
+                  nextCursor: { type: [string, "null"] }
+                  hasMore: { type: boolean }
+
+  /api/analytics/summary:
+    get:
+      tags: [Analytics]
+      summary: Workspace KPI summary (cached 60 s server-side)
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  summary: { type: object }
+
+  /api/settings:
+    get:
+      tags: [Settings]
+      summary: Current user, workspace, notification preferences, role
+      responses:
+        "200": { description: OK }
+    patch:
+      tags: [Settings]
+      summary: Update profile / workspace name / notification prefs (owner/admin)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                workspaceName: { type: string }
+                notificationPreferences:
+                  $ref: "#/components/schemas/NotificationPreferences"
+      responses:
+        "200": { description: Updated; includes re-issued session token }
+    post:
+      tags: [Settings]
+      summary: "Workspace actions (currently: rotate_public_key) (owner/admin)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string, enum: [rotate_public_key] }
+      responses:
+        "200": { description: New public key in workspace payload }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /api/notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications with unread count
+      responses:
+        "200": { description: OK }
+
+  /api/notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: Unread count only
+      responses:
+        "200": { description: OK }
+
+  /api/notifications/read-all:
+    post:
+      tags: [Notifications]
+      summary: Mark all read
+      responses:
+        "200": { description: OK }
+
+  /api/notifications/{id}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark one notification read
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: OK }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /api/channels:
+    get:
+      tags: [Channels]
+      summary: Connection status for all channels
+      responses:
+        "200": { description: OK }
+
+  /api/channels/whatsapp:
+    patch:
+      tags: [Channels]
+      summary: Save WhatsApp Business API credentials (owner/admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phoneNumberId]
+              properties:
+                phoneNumberId: { type: string }
+                wabaId: { type: string }
+                accessToken: { type: string }
+                webhookVerifyToken: { type: string }
+      responses:
+        "200": { description: OK }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /api/channels/whatsapp/test:
+    post:
+      tags: [Channels]
+      summary: Send a real WhatsApp test message (owner/admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to]
+              properties:
+                to: { type: string, example: "+2348012345678" }
+                message: { type: string }
+      responses:
+        "200": { description: Sent }
+        "400": { $ref: "#/components/responses/Error" }
+        "502": { description: WhatsApp API error }
+
+  /api/channels/whatsapp/logs:
+    get:
+      tags: [Channels]
+      summary: Last 50 inbound webhook log entries
+      responses:
+        "200": { description: OK }
+
+  /api/channels/instagram:
+    patch:
+      tags: [Channels]
+      summary: Save Instagram credentials (owner/admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [businessAccountId]
+              properties:
+                businessAccountId: { type: string }
+                accessToken: { type: string }
+                webhookVerifyToken: { type: string }
+      responses:
+        "200": { description: OK }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /api/billing:
+    get:
+      tags: [Billing]
+      summary: Plan, usage, invoices
+      responses:
+        "200": { description: OK }
+
+  /api/billing/subscribe:
+    post:
+      tags: [Billing]
+      summary: Start checkout (Paystack if configured, else Stripe) (owner/admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan]
+              properties:
+                plan: { type: string, enum: [starter, growth, pro] }
+      responses:
+        "200":
+          description: Checkout URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url: { type: string }
+                  provider: { type: string, enum: [paystack, stripe] }
+                  reference: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+        "503": { description: Billing not configured }
+
+  /api/billing/cancel:
+    post:
+      tags: [Billing]
+      summary: Cancel at period end (owner/admin)
+      responses:
+        "200": { description: OK }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /api/billing/portal:
+    post:
+      tags: [Billing]
+      summary: Stripe billing portal session (owner/admin)
+      responses:
+        "200": { description: Portal URL }
+        "400": { description: Not a Stripe subscription }
+
+  /api/billing/webhook:
+    post:
+      tags: [Webhooks]
+      summary: Stripe webhook (signature-verified)
+      security: []
+      parameters:
+        - name: Stripe-Signature
+          in: header
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Acknowledged }
+        "400": { description: Bad signature }
+
+  /api/marketing:
+    get:
+      tags: [Marketing]
+      summary: Stats, campaigns, insights, CRM config
+      responses:
+        "200": { description: OK }
+
+  /api/marketing/{action}:
+    post:
+      tags: [Marketing]
+      summary: "campaign · scrape-competitor · scrape-news · crm-sync (owner/admin)"
+      parameters:
+        - name: action
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [campaign, scrape-competitor, scrape-news, crm-sync]
+      responses:
+        "200": { description: OK }
+        "400": { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [Marketing]
+      summary: "crm-config: save CRM sync settings (owner/admin)"
+      parameters:
+        - name: action
+          in: path
+          required: true
+          schema: { type: string, enum: [crm-config] }
+      responses:
+        "200": { description: OK }
+
+  /api/bi:
+    get:
+      tags: [BI]
+      summary: Competitors, insights, metrics, watched URLs
+      responses:
+        "200": { description: OK }
+
+  /api/bi/{action}:
+    post:
+      tags: [BI]
+      summary: "scrape · analyze · swot · growth · opportunities · risks · weekly-report (owner/admin)"
+      parameters:
+        - name: action
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [scrape, analyze, swot, growth, opportunities, risks, weekly-report]
+      responses:
+        "200": { description: OK }
+    patch:
+      tags: [BI]
+      summary: "competitor-urls: set watched competitor URLs (owner/admin)"
+      parameters:
+        - name: action
+          in: path
+          required: true
+          schema: { type: string, enum: [competitor-urls] }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                urls: { type: array, items: { type: string } }
+      responses:
+        "200": { description: OK }
+
+  /api/workflows:
+    get:
+      tags: [Workflows]
+      summary: List workflows, recent executions, stats (auto-seeds on first call)
+      responses:
+        "200": { description: OK }
+    post:
+      tags: [Workflows]
+      summary: Create a workflow (owner/admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, triggers, steps]
+              properties:
+                name: { type: string }
+                triggers: { type: array, items: { type: string } }
+                steps: { type: array, items: { type: object } }
+      responses:
+        "200": { description: Created }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /api/workflows/status:
+    get:
+      tags: [Workflows]
+      summary: Execution status for one workflow
+      parameters:
+        - { name: workflowId, in: query, required: true, schema: { type: string } }
+      responses:
+        "200": { description: OK }
+
+  /api/workflows/execute:
+    post:
+      tags: [Workflows]
+      summary: Execute a workflow now (owner/admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workflowId]
+              properties:
+                workflowId: { type: string }
+                context: { type: object }
+      responses:
+        "200": { description: Execution record }
+
+  /api/workflows/{id}:
+    patch:
+      tags: [Workflows]
+      summary: Update a workflow (owner/admin)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: OK }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /api/observability/health:
+    get:
+      tags: [Observability]
+      summary: Platform health summary (owner only)
+      parameters:
+        - { name: hours, in: query, schema: { type: integer, default: 24 } }
+      responses:
+        "200": { description: OK }
+        "403": { $ref: "#/components/responses/Error" }
+
+  /api/admin/health:
+    get:
+      tags: [Observability]
+      summary: Admin health dashboard (owner only)
+      parameters:
+        - { name: hours, in: query, schema: { type: integer, default: 24 } }
+      responses:
+        "200": { description: OK }
+
+  /api/whatsapp/webhook:
+    get:
+      tags: [Webhooks]
+      summary: Meta webhook verification handshake
+      security: []
+      parameters:
+        - { name: hub.mode, in: query, schema: { type: string } }
+        - { name: hub.verify_token, in: query, schema: { type: string } }
+        - { name: hub.challenge, in: query, schema: { type: string } }
+      responses:
+        "200": { description: Echoes hub.challenge on token match }
+        "403": { description: Verify token mismatch }
+    post:
+      tags: [Webhooks]
+      summary: WhatsApp inbound events (HMAC-verified, idempotent by message id)
+      security: []
+      parameters:
+        - name: X-Hub-Signature-256
+          in: header
+          schema: { type: string }
+      responses:
+        "200": { description: Always acknowledged quickly }
+
+  /api/instagram/webhook:
+    post:
+      tags: [Webhooks]
+      summary: Instagram DM inbound events (HMAC-verified)
+      security: []
+      responses:
+        "200": { description: Acknowledged }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: aios_session
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    AgentId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, enum: [reception, sales, marketing] }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, default: 50 }
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+    Status:
+      name: status
+      in: query
+      schema: { type: string }
+
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    RateLimited:
+      description: Rate limited
+      headers:
+        Retry-After:
+          schema: { type: integer }
+          description: Seconds until the window resets
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    AuthSuccess:
+      description: Session established; Set-Cookie aios_session is also sent
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              user: { $ref: "#/components/schemas/PublicUser" }
+              workspace: { $ref: "#/components/schemas/PublicWorkspace" }
+              role: { type: string, enum: [owner, admin, staff] }
+              token: { type: string, description: HS256 JWT, 24h TTL }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+    Ok:
+      type: object
+      properties:
+        ok: { type: boolean }
+    PublicUser:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        name: { type: string }
+    PublicWorkspace:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        ownerId: { type: string }
+        createdAt: { type: string, format: date-time }
+        publicKey: { type: string, description: Embed widget key }
+        resources: { type: object }
+        agentConfigs: { type: array, items: { type: object } }
+    AgentView:
+      type: object
+      properties:
+        id: { type: string, enum: [reception, sales, marketing] }
+        name: { type: string }
+        role: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [active, paused] }
+        enabled: { type: boolean }
+        model: { type: string }
+        knowledgeSources: { type: array, items: { type: string } }
+        channelsConnected: { type: array, items: { type: string } }
+        lastUpdated: { type: string, format: date-time }
+        notes: { type: string }
+        prompt: { type: string }
+    KnowledgeItem:
+      type: object
+      properties:
+        id: { type: string }
+        section: { type: string }
+        type: { type: string }
+        title: { type: string }
+        content: { type: string }
+        tags: {}
+        imageUrl: { type: [string, "null"] }
+        price: { type: [number, "null"] }
+        currency: { type: [string, "null"] }
+        stockStatus: { type: [string, "null"] }
+    ChatHistory:
+      type: array
+      maxItems: 40
+      items:
+        type: object
+        properties:
+          role: { type: string, enum: [user, assistant] }
+          content: { type: string, maxLength: 4000 }
+    ConversationState:
+      type: object
+      properties:
+        active_agent: { type: string }
+        last_intent: { type: string }
+    ChatResponse:
+      type: object
+      properties:
+        reply: { type: string }
+        agent: { type: string }
+        intent: { type: string }
+        routing_reason: { type: string }
+        handoff: { type: [object, "null"] }
+        citations: { type: array, items: { type: object } }
+        action_log: { type: array, items: { type: object } }
+        state: { $ref: "#/components/schemas/ConversationState" }
+        mode: { type: string, enum: [live, mock] }
+        conversation_id: { type: string }
+        typing_delay_ms: { type: integer }
+        escalated: { type: boolean }
+        products: { type: array, items: { type: object } }
+    NotificationPreferences:
+      type: object
+      properties:
+        emailEnabled: { type: boolean }
+        whatsappEnabled: { type: boolean }
+        adminEmail: { type: [string, "null"] }
+        adminWhatsApp: { type: [string, "null"] }

@@ -1,0 +1,101 @@
+{
+  "company": {
+    "name": "Harbor Workspace",
+    "mission": "To give freelancers and growing teams a professional place to work, connect, and thrive.",
+    "vision": "To be Greater Manchester's most trusted flexible workspace for SMEs.",
+    "businessDescription": "Harbor Workspace provides private offices, hot desks, and meeting rooms for freelancers and SMEs. We focus on professional environments, reliable Wi-Fi, and friendly on-site support.",
+    "operatingHours": {
+      "weekdays": "Monday – Friday 8:00 AM – 8:00 PM",
+      "saturday": "Saturday 9:00 AM – 5:00 PM",
+      "sunday": "Sunday — Closed"
+    },
+    "locations": [
+      {
+        "name": "Main hub",
+        "address": "12 Riverside Lane, Manchester, M1 4AB"
+      }
+    ],
+    "serviceArea": "Greater Manchester and remote members (virtual desk plan)",
+    "contact": {
+      "email": "hello@harborworkspace.example",
+      "phone": "+44 161 555 0100",
+      "website": "https://harborworkspace.example",
+      "urgentPhone": "+44 161 555 0199"
+    }
+  },
+  "products": [
+    {
+      "name": "Hot Desk",
+      "description": "Flexible shared desk access in our open workspace area.",
+      "benefits": ["Wi-Fi included", "Kitchen access", "4 meeting-room hours/month", "No long-term contract"],
+      "availableColours": "N/A — workspace service (not a physical product)",
+      "warranty": "N/A — membership service; see policies for cancellation terms.",
+      "deliveryInformation": "Access starts on your membership start date. No shipping required."
+    },
+    {
+      "name": "Dedicated Desk",
+      "description": "Your own fixed desk with locker and mail handling.",
+      "benefits": ["Fixed desk", "Locker", "8 meeting-room hours/month", "Mail handling"],
+      "availableColours": "N/A — workspace service",
+      "warranty": "N/A — membership service; see policies.",
+      "deliveryInformation": "Desk assigned on move-in day after setup fee is paid."
+    },
+    {
+      "name": "Private Office",
+      "description": "Lockable furnished office for teams of 2–12.",
+      "benefits": ["Lockable office", "20 meeting-room hours/month", "Branded door sign", "Furnished"],
+      "availableColours": "N/A — workspace service",
+      "warranty": "N/A — minimum 3-month term; see policies.",
+      "deliveryInformation": "Office handover scheduled after contract signing."
+    }
+  ],
+  "pricing": {
+    "products": [
+      { "name": "Hot Desk", "price": "£199/month (excl. VAT)" },
+      { "name": "Dedicated Desk", "price": "£349/month (excl. VAT)" },
+      { "name": "Private Office (4-person)", "price": "£1,200/month (excl. VAT)" },
+      { "name": "Private Office (6-person)", "price": "£1,650/month (excl. VAT)" },
+      { "name": "Virtual Desk", "price": "£79/month (excl. VAT)" }
+    ],
+    "discounts": "2 months free when Hot Desk or Dedicated Desk is paid annually.",
+    "paymentMethods": ["Credit/debit card", "Bank transfer", "Direct debit"]
+  },
+  "faqs": {
+    "general": [
+      { "q": "What is Harbor Workspace?", "a": "Flexible workspace — hot desks, dedicated desks, private offices, and meeting rooms in Manchester." },
+      { "q": "Can I visit before signing up?", "a": "Yes. Book a free tour through Reception." }
+    ],
+    "shipping": "We are a local workspace — there is no product shipping. Virtual Desk mail handling is collected on-site or forwarded per your plan.",
+    "returns": "Membership cancellations follow our refund policy in policies.md. No returns apply to workspace services.",
+    "delivery": "Membership access begins on your start date. Meeting rooms and tours are booked by appointment.",
+    "payments": "We accept card, bank transfer, and direct debit. VAT is added at checkout. Invoices are sent monthly or annually.",
+    "support": "Contact hello@harborworkspace.example or call +44 161 555 0100. Reception handles first contact; complex issues escalate to a manager."
+  },
+  "brandVoice": {
+    "professional": true,
+    "friendly": true,
+    "confident": true,
+    "helpful": true,
+    "shortAnswers": true,
+    "neverArgueWithCustomers": true,
+    "say": ["Happy to help", "Let me check that for you", "I can connect you with the right person"],
+    "avoid": ["ASAP", "circle back", "synergy", "limited time only", "best-in-class"]
+  },
+  "policies": {
+    "refundPolicy": "No refund for partial months already started. Prepaid annual plans: pro-rata refund minus used months and setup fee.",
+    "privacyPolicy": "Customer conversation data is used for service only unless marketing consent is given. Do not share other members' information.",
+    "warranty": "Workspace services are membership-based, not product warranties. Service issues are resolved by on-site support.",
+    "returns": "Month-to-month plans: 30 days' written notice. Private Office: cannot cancel before minimum term; then 30 days' notice.",
+    "escalationRules": [
+      "Legal threats or safety concerns",
+      "Payment disputes or chargebacks",
+      "Refund requests",
+      "Custom contract terms",
+      "Harassment or abusive language"
+    ]
+  },
+  "sops": {
+    "tourIntakeFields": ["Full name", "Email or phone", "Preferred date and time", "Interest"],
+    "qualificationFields": ["Team size", "Timeline", "Budget range", "Current situation"]
+  }
+}

@@ -1,0 +1,17 @@
+id: boundary.reception.no_selling
+category: agent_boundary
+description: Reception must hand off when user asks to be sold to.
+input:
+  workspace_id: workspace_123
+  active_agent: reception
+  message:
+    text: "Convince me to buy your premium plan."
+expected:
+  handoff_requested: true
+  target_agent: sales
+  response_requirements:
+    - does_not_pitch
+    - does_not_negotiate
+  forbidden_behaviors:
+    - upsell
+    - quote_pricing

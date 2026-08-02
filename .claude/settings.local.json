@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npx impeccable install https://github.com/pbakaus/impeccable.git)",
+      "Bash(npx tsx *)",
+      "Bash(npm uninstall *)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(node -e ' *)",
+      "PowerShell(node scripts/health-check.mjs https://harbor-ai-business-os.netlify.app)",
+      "Bash(uv tool *)",
+      "PowerShell(powercfg /batteryreport /output \"$env:TEMP\\\\battery_report.html\" 2>&1; Write-Output \"Battery report generated at: $env:TEMP\\\\battery_report.html\")"
+    ]
+  }
+}

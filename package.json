@@ -1,0 +1,28 @@
+{
+  "name": "ai-business-os",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate:shared": "node scripts/generate-shared.mjs",
+    "eval": "tsx evals/run.ts",
+    "test:security": "tsx tests/security.test.ts",
+    "test:tenant": "tsx tests/tenant-isolation.test.ts",
+    "test:logging": "tsx tests/logger-redaction.test.ts",
+    "test:perf": "tsx tests/performance.test.ts",
+    "test:embed": "tsx web/src/tests/embed-security/embed-security.test.ts",
+    "test:all": "tsx tests/security.test.ts && tsx tests/tenant-isolation.test.ts && tsx tests/logger-redaction.test.ts && tsx tests/performance.test.ts && tsx web/src/tests/embed-security/embed-security.test.ts",
+    "loadtest": "node scripts/load-test.mjs",
+    "health-check": "node scripts/health-check.mjs",
+    "backup:db": "node scripts/backup-database.mjs",
+    "export:workspace": "node scripts/export-workspace-data.mjs",
+    "check:bundle": "node scripts/check-bundle-size.mjs",
+    "migrate:supabase": "tsx scripts/migrate-local-to-supabase.ts",
+    "dev": "npm run dev --prefix web",
+    "build": "npm run build --prefix web"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "tsx": "^4.20.3",
+    "yaml": "^2.8.0"
+  }
+}

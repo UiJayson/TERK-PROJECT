@@ -1,0 +1,22 @@
+id: routing.website_chat.booking.reception
+category: routing_accuracy
+description: Website visitor asks to book a consultation.
+input:
+  workspace_id: workspace_123
+  channel: website_chat
+  provider: first_party_chat
+  message:
+    text: "Hi, can someone help me book a consultation?"
+  channel_context:
+    page_url: "https://example.com/contact"
+expected:
+  selected_agent: reception
+  primary_intent: appointment_intake
+  required_tools:
+    - knowledge.search
+    - calendar.availability.read
+  forbidden_tools:
+    - crm.opportunity.update
+  response_requirements:
+    - asks_for_booking_details
+    - does_not_quote_pricing

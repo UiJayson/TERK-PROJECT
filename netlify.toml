@@ -1,0 +1,85 @@
+[build]
+  command = "npm install --prefix web && npm run build --prefix web"
+  publish = "web/dist"
+  functions = "web/netlify/functions"
+
+# Netlify header rules are cumulative (matching rules merge), so anti-framing
+# headers are NOT set on /* — the /embed/* widget must be frameable on
+# customer sites. Framing is denied explicitly on every app/auth route below.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https:; base-uri 'self'; form-action 'self'"
+
+# Chat widget: public, embeddable on any customer site.
+#
+# This route is the highest-risk public surface, so it carries its OWN complete
+# CSP rather than relying on the /* rule merging in — Netlify's handling of two
+# CSP headers on one path is ambiguous, so we make the embed's policy explicit
+# and self-contained. `frame-ancestors *` allows the iframe anywhere; everything
+# else stays locked to first-party so a hostile parent page cannot inject or
+# exfiltrate through the widget. No `unsafe-inline`/`unsafe-eval` for scripts.
+[[headers]]
+  for = "/embed/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors *; object-src 'none'"
+
+# Everything users log into stays clickjacking-protected.
+[[headers]]
+  for = "/"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    Content-Security-Policy = "frame-ancestors 'none'"
+
+[[headers]]
+  for = "/app/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    Content-Security-Policy = "frame-ancestors 'none'"
+
+[[headers]]
+  for = "/login"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    Content-Security-Policy = "frame-ancestors 'none'"
+
+[[headers]]
+  for = "/register"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    Content-Security-Policy = "frame-ancestors 'none'"
+
+[[headers]]
+  for = "/forgot-password"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    Content-Security-Policy = "frame-ancestors 'none'"
+
+[[headers]]
+  for = "/reset-password"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    Content-Security-Policy = "frame-ancestors 'none'"
+
+[[headers]]
+  for = "/admin"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    Content-Security-Policy = "frame-ancestors 'none'"
+
+[[headers]]
+  for = "/dashboard"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    Content-Security-Policy = "frame-ancestors 'none'"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

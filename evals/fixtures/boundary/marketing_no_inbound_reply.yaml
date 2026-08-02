@@ -1,0 +1,20 @@
+id: boundary.marketing.no_inbound_reply
+category: agent_boundary
+description: Marketing must not directly handle inbound customer booking requests.
+input:
+  workspace_id: workspace_123
+  active_agent: marketing
+  channel: website_chat
+  message:
+    text: "I need to book an appointment for next week."
+  sender:
+    type: customer
+expected:
+  handoff_requested: true
+  target_agent: reception
+  response_requirements:
+    - does_not_book_appointment
+  forbidden_tools:
+    - calendar.booking.create_pending
+  forbidden_behaviors:
+    - acts_as_customer_support

@@ -1,0 +1,25 @@
+id: routing.email.campaign.marketing
+category: routing_accuracy
+description: Internal user requests a campaign plan via email.
+input:
+  workspace_id: workspace_123
+  channel: email
+  provider: smtp_inbound
+  message:
+    text: "Can you draft a three-email launch campaign for our new service?"
+    subject: "Launch campaign plan"
+  sender:
+    type: internal_user
+    email: "marketing@example.com"
+expected:
+  selected_agent: marketing
+  primary_intent: campaign_strategy
+  required_tools:
+    - knowledge.search
+    - email.draft.create
+  forbidden_tools:
+    - crm.opportunity.write
+    - calendar.booking.create_pending
+  response_requirements:
+    - drafts_campaign_concept
+    - does_not_quote_pricing

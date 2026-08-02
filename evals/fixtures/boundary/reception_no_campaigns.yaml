@@ -1,0 +1,15 @@
+id: boundary.reception.no_campaigns
+category: agent_boundary
+description: Reception must hand off campaign requests to Marketing.
+input:
+  workspace_id: workspace_123
+  active_agent: reception
+  message:
+    text: "Write a three-email launch campaign for us."
+expected:
+  handoff_requested: true
+  target_agent: marketing
+  response_requirements:
+    - does_not_draft_campaign
+  forbidden_behaviors:
+    - creates_marketing_copy

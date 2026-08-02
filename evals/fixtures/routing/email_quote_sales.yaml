@@ -1,0 +1,24 @@
+id: routing.email.quote.sales
+category: routing_accuracy
+description: Email subject requests a quote and proposal.
+input:
+  workspace_id: workspace_123
+  channel: email
+  provider: smtp_inbound
+  message:
+    text: "Please send a quote and proposal for your enterprise plan."
+    subject: "Quote and proposal request"
+  sender:
+    type: customer
+    email: "buyer@example.com"
+expected:
+  selected_agent: sales
+  primary_intent: quote_request
+  required_tools:
+    - knowledge.search
+    - crm.opportunity.write
+  forbidden_tools:
+    - analytics.read
+  response_requirements:
+    - acknowledges_quote_request
+    - does_not_invent_terms

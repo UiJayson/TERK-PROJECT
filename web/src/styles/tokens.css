@@ -1,0 +1,156 @@
+/*
+ * Design tokens — Harbor AI Business OS
+ * Single source of truth for color, type, spacing, elevation.
+ * Light theme by default; dark theme via prefers-color-scheme.
+ * Accent discipline: electric blue is the ONLY interactive color.
+ */
+:root {
+  /* Base palette */
+  --blue-600: #2563eb;
+  --blue-500: #3b82f6;
+  --blue-400: #60a5fa;
+  --blue-200: #bfdbfe;
+  --blue-100: #dbeafe;
+  --teal-500: #10b981;
+  --teal-700: #047857;
+  --teal-100: #d1fae5;
+  --teal-50: #ecfdf5;
+  --amber-500: #f59e0b;
+  --amber-700: #b45309;
+  --amber-800: #92400e;
+  --amber-100: #fef3c7;
+  --rose-500: #f43f5e;
+  --rose-700: #be123c;
+  --rose-100: #ffe4e6;
+  --rose-50: #fff1f2;
+  --violet-600: #7c3aed;
+  --violet-100: #ede9fe;
+  --slate-900: #0f172a;
+  --slate-800: #1e293b;
+  --slate-700: #334155;
+  --slate-500: #64748b;
+  --slate-400: #94a3b8;
+  --slate-200: #e2e8f0;
+  --slate-100: #f1f5f9;
+  --slate-50: #f8fafc;
+  --white: #ffffff;
+  --ink-black: #0f0f0f; /* dark feature cards keep this in BOTH modes */
+
+  /* Semantic roles */
+  --page-bg: #eef0f3;
+  --surface: var(--white);
+  --surface-dim: var(--slate-50);
+  --surface-sunken: var(--slate-100);
+  --text-primary: var(--slate-900);
+  --text-secondary: var(--slate-500);
+  --text-faint: var(--slate-400);
+  --border-default: var(--slate-200);
+  --border-strong: #cbd5e1;
+
+  --accent: var(--blue-600);
+  --accent-hover: #1d4ed8;
+  --accent-light: var(--blue-100);
+  --accent-contrast: var(--white);
+
+  --success: var(--teal-500);
+  --success-strong: var(--teal-700);
+  --success-light: var(--teal-100);
+  --success-faint: var(--teal-50);
+  --warning: var(--amber-500);
+  --warning-strong: var(--amber-700);
+  --warning-light: var(--amber-100);
+  --danger: var(--rose-500);
+  --danger-strong: var(--rose-700);
+  --danger-light: var(--rose-100);
+  --danger-faint: var(--rose-50);
+
+  /* Typography */
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+
+  /* Shape + elevation */
+  --card-radius: 16px;
+  --card-padding: 24px;
+  --input-radius: 10px;
+  --pill-radius: 999px;
+  --card-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), 0 4px 12px rgba(15, 23, 42, 0.03);
+  --card-shadow-hover: 0 2px 6px rgba(15, 23, 42, 0.06), 0 10px 24px rgba(15, 23, 42, 0.07);
+  --modal-shadow: 0 8px 20px rgba(15, 23, 42, 0.1), 0 24px 60px rgba(15, 23, 42, 0.14);
+
+  /* Layout */
+  --sidebar-width: 260px;
+  --sidebar-collapsed: 72px;
+  --topnav-height: 64px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --speed-fast: 120ms;
+  --speed-base: 180ms;
+  --speed-slow: 300ms;
+
+  /* Charts */
+  --chart-1: var(--blue-600);
+  --chart-2: var(--teal-500);
+  --chart-3: var(--blue-400);
+  --chart-4: var(--slate-800);
+  --chart-grid: var(--slate-200);
+
+  /* Legacy aliases — older page styles reference --dash-*; keep them pointed
+     at the semantic tokens above so every page reads from one system. */
+  --dash-bg: var(--page-bg);
+  --dash-surface: var(--surface);
+  --dash-line: var(--border-default);
+  --dash-muted: var(--text-secondary);
+  --dash-ink: var(--text-primary);
+  --dash-text: var(--text-primary);
+  --dash-radius: var(--card-radius);
+  --dash-shadow: var(--card-shadow);
+  --dash-accent: var(--accent);
+  --dash-accent-soft: var(--accent-light);
+}
+
+:root[data-theme="dark"],
+:root.dark {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page-bg: #0b1220;
+    --surface: #16203a;
+    --surface-dim: #101a30;
+    --surface-sunken: #0b1220;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-faint: #64748b;
+    --border-default: #2a3752;
+    --border-strong: #3b4a68;
+
+    --accent: var(--blue-500);
+    --accent-hover: var(--blue-400);
+    --accent-light: rgba(59, 130, 246, 0.16);
+
+    --success-strong: #34d399;
+    --success-light: rgba(16, 185, 129, 0.18);
+    --success-faint: rgba(16, 185, 129, 0.1);
+    --warning-strong: #fbbf24;
+    --warning-light: rgba(245, 158, 11, 0.18);
+    --danger-strong: #fb7185;
+    --danger-light: rgba(244, 63, 94, 0.18);
+    --danger-faint: rgba(244, 63, 94, 0.1);
+    --violet-100: rgba(124, 58, 237, 0.2);
+    --blue-100: rgba(59, 130, 246, 0.16);
+    --teal-100: rgba(16, 185, 129, 0.18);
+    --amber-100: rgba(245, 158, 11, 0.18);
+    --rose-100: rgba(244, 63, 94, 0.18);
+    --teal-50: rgba(16, 185, 129, 0.08);
+    --rose-50: rgba(244, 63, 94, 0.08);
+
+    --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2);
+    --card-shadow-hover: 0 2px 6px rgba(0, 0, 0, 0.35), 0 10px 24px rgba(0, 0, 0, 0.3);
+    --modal-shadow: 0 8px 20px rgba(0, 0, 0, 0.4), 0 24px 60px rgba(0, 0, 0, 0.5);
+
+    --chart-4: #cbd5e1;
+    --chart-grid: #2a3752;
+  }
+}

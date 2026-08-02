@@ -1,0 +1,8 @@
+# Pre-commit: fast correctness gate (full test suite runs in CI).
+# Activate after `git init` with: npx husky init  (husky is a devDependency)
+
+echo "pre-commit: typechecking…"
+npx tsc -b web
+
+echo "pre-commit: security test suite…"
+npm run test:security

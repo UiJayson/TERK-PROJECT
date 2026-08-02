@@ -1,0 +1,33 @@
+version: 2
+updates:
+  # App + functions dependencies
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        dependency-type: development
+      react:
+        patterns: ["react", "react-dom", "react-router-dom", "@types/react*"]
+      ai-sdks:
+        patterns: ["@anthropic-ai/*", "openai"]
+    # Security updates are always opened regardless of these limits.
+
+  # Root tooling
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    open-pull-requests-limit: 3
+
+  # Keep the CI actions themselves fresh
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

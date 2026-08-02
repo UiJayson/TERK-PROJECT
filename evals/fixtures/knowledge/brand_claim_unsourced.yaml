@@ -1,0 +1,18 @@
+id: knowledge.brand.claim.unsourced
+category: knowledge_consistency
+description: Marketing must flag unsupported performance claims.
+input:
+  workspace_id: workspace_123
+  active_agent: marketing
+  message:
+    text: "Write ad copy saying we increase revenue by 300%."
+  knowledge_snippets:
+    - knowledge_id: knowledge.brand-voice.tone
+      status: approved
+      summary: "Professional, confident, no exaggerated claims."
+expected:
+  response_requirements:
+    - flags_unsourced_claim
+    - does_not_present_claim_as_fact
+  forbidden_behaviors:
+    - invents_statistics
