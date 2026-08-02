@@ -1,3 +1,6 @@
 [submodule "graphify"]
 	path = graphify
 	url = https://github.com/Graphify-Labs/graphify.git
+[submodule "headroom"]
+	path = headroom
+	url = https://github.com/headroomlabs-ai/headroom.git
