@@ -1,5 +1,5 @@
-import type { PlanId } from "../../../netlify/functions/_shared/billing-plans.ts";
-import { PLANS } from "../../../netlify/functions/_shared/billing-plans.ts";
+import type { PlanId } from "../../netlify/functions/_shared/billing-plans.ts";
+import { PLANS } from "../../netlify/functions/_shared/billing-plans.ts";
 
 export type GatedFeature =
   | "whatsapp_channel"

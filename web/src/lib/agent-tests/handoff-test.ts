@@ -26,7 +26,12 @@ console.log("normalizeHandoff");
 {
   assert(normalizeHandoff(null) === null, "null stays null");
   assert(
-    normalizeHandoff({ handoff_requested: false, target_agent: "sales" }) === null,
+    normalizeHandoff({
+      handoff_requested: false,
+      target_agent: "sales",
+      reason: "n/a",
+      conversation_summary: "n/a",
+    }) === null,
     "handoff_requested false is normalized away",
   );
   const valid = normalizeHandoff({
