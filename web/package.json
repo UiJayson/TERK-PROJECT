@@ -28,14 +28,14 @@
     "recharts": "^3.9.2"
   },
   "devDependencies": {
-    "@netlify/functions": "^3.1.10",
-    "@netlify/vite-plugin": "^2.2.3",
-    "@types/bcryptjs": "^2.4.6",
+    "@netlify/functions": "^5.3.0",
+    "@netlify/vite-plugin": "^2.12.9",
+    "@types/bcryptjs": "^3.0.0",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
-    "@vitejs/plugin-react": "^4.6.0",
-    "tsx": "^4.20.3",
-    "typescript": "^5.8.3",
-    "vite": "^6.3.5"
+    "@vitejs/plugin-react": "^6.0.5",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.0"
   }
 }
