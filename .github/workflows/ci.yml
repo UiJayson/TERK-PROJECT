@@ -27,7 +27,7 @@ jobs:
     name: Typecheck, tests, security scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # gitleaks scans history
 
@@ -78,7 +78,7 @@ jobs:
     needs: checks
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -119,7 +119,7 @@ jobs:
       # enable automatic schema migrations before each staging deploy.
       STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -171,7 +171,7 @@ jobs:
     env:
       PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
