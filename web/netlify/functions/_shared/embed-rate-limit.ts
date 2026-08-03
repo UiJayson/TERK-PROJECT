@@ -1,4 +1,4 @@
-import { checkRateLimit, clientIp } from "./rate-limit.ts";
+import { checkRateLimitInMemory, clientIp } from "./rate-limit.ts";
 
 /**
  * Rate limits for the public embed/chat surface.
@@ -32,13 +32,13 @@ export interface EmbedRateLimitResult {
 
 /** Per-IP throttle for the public chat endpoint. */
 export function checkEmbedIpLimit(req: Request): EmbedRateLimitResult {
-  const result = checkRateLimit(`chat:${clientIp(req)}`, EMBED_LIMITS.perIpPerMinute, MINUTE_MS);
+  const result = checkRateLimitInMemory(`chat:${clientIp(req)}`, EMBED_LIMITS.perIpPerMinute, MINUTE_MS);
   return { ...result, reason: result.allowed ? undefined : "ip" };
 }
 
 /** Per-public-key throttle — caps a workspace widget's total message rate. */
 export function checkEmbedKeyLimit(publicKey: string): EmbedRateLimitResult {
-  const result = checkRateLimit(
+  const result = checkRateLimitInMemory(
     `embed-key:${publicKey}`,
     EMBED_LIMITS.perKeyPerMinute,
     MINUTE_MS,
@@ -52,7 +52,7 @@ export function checkEmbedKeyLimit(publicKey: string): EmbedRateLimitResult {
  * 404 and starving enumeration scripts of signal.
  */
 export function recordInvalidKeyProbe(req: Request): EmbedRateLimitResult {
-  const result = checkRateLimit(
+  const result = checkRateLimitInMemory(
     `embed-badkey:${clientIp(req)}`,
     EMBED_LIMITS.invalidKeyProbesPerIpPer10Min,
     10 * MINUTE_MS,

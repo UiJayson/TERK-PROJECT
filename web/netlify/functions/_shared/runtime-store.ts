@@ -417,6 +417,100 @@ export async function getAnalyticsSummary(workspaceId: string) {
     .slice(0, 5)
     .map(([question, count]) => ({ question, count }));
 
+  // --- Real derived time series (replaces former hardcoded fixtures) ---
+  const now = Date.now();
+
+  // Average response time: mean customer→agent reply gap, ignoring gaps over an
+  // hour so an overnight reply doesn't skew the figure. Messages are already
+  // ordered chronologically by db.getConversations.
+  let responseGapTotal = 0;
+  let responseGapCount = 0;
+  for (const conversation of conversations) {
+    let pendingCustomerAt: number | null = null;
+    for (const message of conversation.messages) {
+      const at = new Date(message.sentAt).getTime();
+      if (Number.isNaN(at)) continue;
+      if (message.role === "customer") {
+        pendingCustomerAt = at;
+      } else if (message.role === "agent" && pendingCustomerAt !== null) {
+        const deltaSeconds = (at - pendingCustomerAt) / 1000;
+        if (deltaSeconds > 0 && deltaSeconds < 3600) {
+          responseGapTotal += deltaSeconds;
+          responseGapCount += 1;
+        }
+        pendingCustomerAt = null;
+      }
+    }
+  }
+  const averageResponseTimeSeconds =
+    responseGapCount === 0 ? 0 : Math.round((responseGapTotal / responseGapCount) * 10) / 10;
+
+  // Channel mix: real share of conversations per channel.
+  const channelCounts = new Map<string, number>();
+  for (const conversation of conversations) {
+    const channel = conversation.channel ?? "website";
+    channelCounts.set(channel, (channelCounts.get(channel) ?? 0) + 1);
+  }
+  const channelMix = [...channelCounts.entries()]
+    .map(([channel, count]) => ({
+      channel: channel.charAt(0).toUpperCase() + channel.slice(1),
+      value: totalConversations === 0 ? 0 : Math.round((count / totalConversations) * 100),
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  // Monthly activity: conversations + leads bucketed into the last 6 months.
+  const monthBuckets: Array<{ key: string; month: string; conversations: number; leads: number }> = [];
+  const monthIndex = new Map<string, number>();
+  const monthBase = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(monthBase.getFullYear(), monthBase.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    monthIndex.set(key, monthBuckets.length);
+    monthBuckets.push({
+      key,
+      month: d.toLocaleString("en", { month: "short" }),
+      conversations: 0,
+      leads: 0,
+    });
+  }
+  const bucketByMonth = (dateStr: string, field: "conversations" | "leads") => {
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return;
+    const idx = monthIndex.get(`${d.getFullYear()}-${d.getMonth()}`);
+    if (idx !== undefined) monthBuckets[idx][field] += 1;
+  };
+  for (const conversation of conversations) bucketByMonth(conversation.createdAt, "conversations");
+  for (const lead of leads) bucketByMonth(lead.createdAt, "leads");
+  const monthlyActivity = monthBuckets.map(({ month, conversations: c, leads: l }) => ({
+    month,
+    conversations: c,
+    leads: l,
+  }));
+
+  // Response-quality trend: real AI response rate per week for the last 4 weeks.
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  const weekBuckets = [0, 1, 2, 3].map((i) => ({
+    week: `W${i + 1}`,
+    start: now - (4 - i) * weekMs,
+    end: now - (3 - i) * weekMs,
+    agent: 0,
+    customer: 0,
+  }));
+  for (const conversation of conversations) {
+    for (const message of conversation.messages) {
+      const at = new Date(message.sentAt).getTime();
+      if (Number.isNaN(at)) continue;
+      const bucket = weekBuckets.find((b) => at >= b.start && at < b.end);
+      if (!bucket) continue;
+      if (message.role === "agent") bucket.agent += 1;
+      else if (message.role === "customer") bucket.customer += 1;
+    }
+  }
+  const responseTrend = weekBuckets.map((b) => ({
+    week: b.week,
+    rate: b.customer === 0 ? 0 : Math.round((b.agent / b.customer) * 1000) / 10,
+  }));
+
   const aiUsage = await db.getAIUsageSummary(workspaceId);
   const usage = await getUsageSnapshot(workspaceId);
   const billing = await db.getWorkspaceBilling(workspaceId);
@@ -425,7 +519,10 @@ export async function getAnalyticsSummary(workspaceId: string) {
   return {
     totalConversations,
     aiResponseRate,
-    averageResponseTimeSeconds: totalConversations === 0 ? 0 : 4.2,
+    averageResponseTimeSeconds,
+    monthlyActivity,
+    channelMix,
+    responseTrend,
     leadConversion,
     salesInfluenced: leads.filter((lead) => lead.assignedAgent === "sales").length * 1200,
     mostActiveAgent,

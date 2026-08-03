@@ -360,6 +360,19 @@
   height: 180px;
 }
 
+.analytics-chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 180px;
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
 .analytics-active-agent {
   display: grid;
   gap: 0.5rem;

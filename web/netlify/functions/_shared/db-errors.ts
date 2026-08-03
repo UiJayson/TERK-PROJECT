@@ -61,6 +61,44 @@ function isConnectionError(error: unknown): boolean {
   );
 }
 
+// Postgres SQLSTATE codes that mean "the database is unreachable OR
+// misconfigured OR not yet migrated" — i.e. a backend/ops problem the end user
+// cannot act on, not a bad request. Distinct from UNAVAILABLE_PG_CODES (pure
+// connectivity) so callers can surface a clear 503 instead of a mystery 500.
+const CONFIG_OR_CONNECTION_PG_CODES = new Set<string>([
+  ...UNAVAILABLE_PG_CODES,
+  "28P01", // invalid_password
+  "28000", // invalid_authorization_specification
+  "3D000", // invalid_catalog_name (database does not exist)
+  "42P01", // undefined_table (schema not migrated)
+]);
+
+/**
+ * True when an error means the database is unavailable, unauthenticated,
+ * misconfigured, or un-migrated — anything where the correct response is a 503
+ * "backend not connected" rather than a generic 500. Detects by type and PG
+ * code first, then falls back to matching our own stable internal messages
+ * (never driver-internal text, which stays server-side).
+ */
+export function isDatabaseUnavailableError(error: unknown): boolean {
+  if (error instanceof DbUnavailableError) return true;
+  if (!error || typeof error !== "object") return false;
+
+  const e = error as { code?: string; message?: string };
+  if (e.code && CONFIG_OR_CONNECTION_PG_CODES.has(e.code)) return true;
+
+  const message = (e.message ?? "").toLowerCase();
+  return (
+    message.includes("missing database_url") || // our own config error
+    message.includes("service temporarily unavailable") || // DbUnavailableError default
+    message.includes("tenant or user not found") || // Supabase pooler auth
+    message.includes("econnrefused") ||
+    message.includes("getaddrinfo") ||
+    message.includes("connect") ||
+    message.includes("password authentication failed")
+  );
+}
+
 export function mapDbError(error: unknown): Error {
   if (error instanceof DbUnavailableError || error instanceof DbAccessDeniedError) {
     return error;

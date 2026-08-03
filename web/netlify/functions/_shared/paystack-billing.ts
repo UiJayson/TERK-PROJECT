@@ -20,10 +20,16 @@ function paystackPlanCode(planId: PlanId): string | null {
   return map[planId] ?? null;
 }
 
-/** Paystack amounts are in the smallest currency unit (kobo for NGN). */
+/**
+ * Paystack amounts are in the smallest currency unit (kobo; 100 kobo = ₦1).
+ * Plan prices are stored in USD, so convert: USD × usdToNgn = naira, × 100 = kobo.
+ * (Previously this used a hardcoded ×10000, i.e. an implicit $1=₦100 rate, which
+ * undercharged every plan ~15×.)
+ */
 export function planAmountKobo(planId: PlanId): number {
   const plan = PLANS[planId];
-  return Math.max(100, Math.round(plan.priceMonthly * 10000));
+  const { usdToNgn } = getConfig().paystack;
+  return Math.max(100, Math.round(plan.priceMonthly * usdToNgn * 100));
 }
 
 async function paystackRequest<T>(

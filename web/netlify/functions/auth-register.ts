@@ -21,6 +21,7 @@ import {
   getWorkspaceRoleForUser,
 } from "./_shared/auth-store.ts";
 import { checkRateLimit, clientIp } from "./_shared/rate-limit.ts";
+import { isDatabaseUnavailableError } from "./_shared/db-errors.ts";
 
 interface RegisterBody {
   name?: string;
@@ -36,7 +37,7 @@ async function handler(req: Request, _context: Context) {
   }
 
   const ip = clientIp(req);
-  const limit = checkRateLimit(`register:${ip}`, 5, 15 * 60 * 1000);
+  const limit = await checkRateLimit(`register:${ip}`, 5, 15 * 60 * 1000);
   if (!limit.allowed) {
     return jsonResponse(
       { error: "Too many registration attempts. Try again later." },
@@ -105,7 +106,7 @@ async function handler(req: Request, _context: Context) {
     if (message === "EMAIL_TAKEN") {
       return jsonResponse({ error: "An account with this email already exists." }, { status: 409 });
     }
-    if (/Missing DATABASE_URL|database|ECONNREFUSED|connect/i.test(message)) {
+    if (isDatabaseUnavailableError(error)) {
       console.error("Registration failed (database):", message);
       return jsonResponse(
         {

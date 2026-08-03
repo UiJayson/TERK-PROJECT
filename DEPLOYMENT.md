@@ -134,11 +134,26 @@ Migrations are plain SQL files in [supabase/migrations/](supabase/migrations/), 
 | 008–010 | Auth RBAC (roles), billing tables, observability |
 | 011–016 | Keyword retrieval, pending messages, product catalog, marketing orchestrator, BI/workflow events |
 | 017 | Performance indexes + `messages.workspace_id` |
+| 018 | Stripe webhook idempotency |
+| 019 | `rate_limits` (distributed auth rate limiting) |
 
-**Applying migrations** — there is no automatic migration runner. Two options:
+**Applying migrations** — use the built-in runner (`web/scripts/migrate-db.mjs`). It
+applies every pending file in order, records each in a `schema_migrations` table
+so it runs only once, and wraps each in a transaction (except `CREATE INDEX
+CONCURRENTLY` files, which Postgres forbids in one):
 
-1. **Supabase SQL Editor** (what the project does today): paste each new file in numeric order and run.
-2. **Supabase CLI:** `supabase db push` with the project linked.
+```bash
+DATABASE_URL="postgresql://…pooler.supabase.com:6543/postgres" npm run migrate:db --prefix web
+```
+
+- `--dry-run` prints what would run without changing anything.
+- `--baseline` marks all current migrations as applied **without** running them —
+  use once on a database already migrated by hand so tracking starts cleanly.
+
+CI applies migrations automatically before each deploy when the
+`STAGING_DATABASE_URL` / `PROD_DATABASE_URL` repo secrets are set (see
+[.github/workflows/ci.yml](.github/workflows/ci.yml)). Falling back to the
+Supabase SQL Editor or `supabase db push` still works if you prefer.
 
 Migrations must stay idempotent so re-running the folder from scratch is safe. New migrations: next number, one concern per file, never edit an already-applied file.
 

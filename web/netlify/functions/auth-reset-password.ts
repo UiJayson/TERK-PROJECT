@@ -22,7 +22,7 @@ async function handler(req: Request, _context: Context) {
 
   try {
     const ip = clientIp(req);
-    const limit = checkRateLimit(`reset:${ip}`, 5, 15 * 60 * 1000);
+    const limit = await checkRateLimit(`reset:${ip}`, 5, 15 * 60 * 1000);
     if (!limit.allowed) {
       return jsonResponse(
         { error: "Too many reset attempts. Try again later." },

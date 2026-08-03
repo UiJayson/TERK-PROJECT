@@ -113,6 +113,11 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:
       name: staging
+    env:
+      # Job-level so the step-level `if` below can read it (secrets are not
+      # directly usable in `if:`). Add STAGING_DATABASE_URL in repo secrets to
+      # enable automatic schema migrations before each staging deploy.
+      STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -128,6 +133,19 @@ jobs:
         run: |
           npm ci
           npm ci --prefix web
+
+      # Apply pending schema migrations BEFORE deploying new code, so the
+      # functions never run against an un-migrated database. Skipped (with a
+      # warning) if STAGING_DATABASE_URL is not configured.
+      - name: Apply DB migrations (staging)
+        if: env.STAGING_DATABASE_URL != ''
+        run: npm run migrate:db --prefix web
+        env:
+          DATABASE_URL: ${{ env.STAGING_DATABASE_URL }}
+
+      - name: Warn if migrations skipped
+        if: env.STAGING_DATABASE_URL == ''
+        run: echo "::warning::STAGING_DATABASE_URL not set — schema migrations were NOT applied."
 
       # netlify deploy --build runs the build with the site's env vars and
       # bundles the functions — do not reuse the artifact from the build job,
@@ -150,6 +168,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     environment:
       name: production # add required reviewers here for a manual gate
+    env:
+      PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -165,6 +185,16 @@ jobs:
         run: |
           npm ci
           npm ci --prefix web
+
+      - name: Apply DB migrations (production)
+        if: env.PROD_DATABASE_URL != ''
+        run: npm run migrate:db --prefix web
+        env:
+          DATABASE_URL: ${{ env.PROD_DATABASE_URL }}
+
+      - name: Warn if migrations skipped
+        if: env.PROD_DATABASE_URL == ''
+        run: echo "::warning::PROD_DATABASE_URL not set — schema migrations were NOT applied."
 
       - name: Deploy to Netlify (production)
         run: npx netlify-cli deploy --build --prod --message "release ${{ github.ref_name }}"

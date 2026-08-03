@@ -20,7 +20,6 @@ import {
 import { ErrorBanner } from "../../components/ui/ErrorBanner";
 import { LoadingState } from "../../components/ui/LoadingState";
 import { PageHeader } from "../../components/ui/PageHeader";
-import { CHANNEL_MIX, MONTHLY_ACTIVITY, RESPONSE_TREND } from "../../data/analytics";
 
 const CHART_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--blue-200)"];
 
@@ -76,10 +75,17 @@ function ChartCard({
   );
 }
 
+function EmptyChart({ label }: { label: string }) {
+  return <div className="analytics-chart-empty">{label}</div>;
+}
+
 const emptySummary: AnalyticsSummary = {
   totalConversations: 0,
   aiResponseRate: 0,
   averageResponseTimeSeconds: 0,
+  monthlyActivity: [],
+  channelMix: [],
+  responseTrend: [],
   leadConversion: 0,
   salesInfluenced: 0,
   mostActiveAgent: "reception",
@@ -126,6 +132,12 @@ export function AnalyticsPage() {
     summary.topQuestions.length > 0
       ? summary.topQuestions
       : [{ question: "No questions yet. Test an agent", count: 0 }];
+
+  const hasMonthlyActivity = summary.monthlyActivity.some(
+    (m) => m.conversations > 0 || m.leads > 0,
+  );
+  const hasResponseTrend = summary.responseTrend.some((w) => w.rate > 0);
+  const hasChannelMix = summary.channelMix.length > 0;
 
   return (
     <div className="page-stack analytics-page">
@@ -204,12 +216,15 @@ export function AnalyticsPage() {
           <section className="analytics-grid">
             <ChartCard
               title="Monthly activity"
-              subtitle="Trend template. Volume grows as conversations accumulate"
+              subtitle="Conversations per month, last 6 months"
               wide
             >
               <div className="analytics-chart analytics-chart--tall">
+                {!hasMonthlyActivity ? (
+                  <EmptyChart label="Not enough data yet — activity appears as conversations accumulate." />
+                ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={MONTHLY_ACTIVITY}>
+                  <AreaChart data={summary.monthlyActivity}>
                     <defs>
                       <linearGradient id="convFill" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.35} />
@@ -230,6 +245,7 @@ export function AnalyticsPage() {
                     />
                   </AreaChart>
                 </ResponsiveContainer>
+                )}
               </div>
             </ChartCard>
 
@@ -300,10 +316,13 @@ export function AnalyticsPage() {
               </div>
             </ChartCard>
 
-            <ChartCard title="AI response quality" subtitle="Trend template">
+            <ChartCard title="AI response quality" subtitle="Response rate per week, last 4 weeks">
               <div className="analytics-chart">
+                {!hasResponseTrend ? (
+                  <EmptyChart label="Not enough data yet — trend appears once agents reply to messages." />
+                ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={RESPONSE_TREND}>
+                  <AreaChart data={summary.responseTrend}>
                     <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="4 4" vertical={false} />
                     <XAxis dataKey="week" tickLine={false} axisLine={false} tick={{ fill: "var(--text-secondary)", fontSize: 12 }} />
                     <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-secondary)", fontSize: 12 }} />
@@ -318,12 +337,16 @@ export function AnalyticsPage() {
                     />
                   </AreaChart>
                 </ResponsiveContainer>
+                )}
               </div>
             </ChartCard>
 
-            <ChartCard title="Channel mix" subtitle="Channel template until more channels connect">
+            <ChartCard title="Channel mix" subtitle="Share of conversations per channel">
               <div className="analytics-channel-list">
-                {CHANNEL_MIX.map((channel, index) => (
+                {!hasChannelMix ? (
+                  <EmptyChart label="No conversations yet — channel mix appears as messages arrive." />
+                ) : null}
+                {summary.channelMix.map((channel, index) => (
                   <div key={channel.channel} className="analytics-channel-row">
                     <div className="analytics-channel-row__label">
                       <span>{channel.channel}</span>

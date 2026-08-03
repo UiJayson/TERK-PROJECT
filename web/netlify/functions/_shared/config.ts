@@ -31,6 +31,8 @@ export interface AppConfig {
     planStarter: string | null;
     planGrowth: string | null;
     planPro: string | null;
+    /** USD→NGN rate used to convert plan prices (which are in USD) to naira. */
+    usdToNgn: number;
   };
   resend: {
     apiKey: string | null;
@@ -224,6 +226,11 @@ export function loadConfig(): AppConfig {
       planStarter: readEnv("PAYSTACK_PLAN_STARTER") ?? null,
       planGrowth: readEnv("PAYSTACK_PLAN_GROWTH") ?? null,
       planPro: readEnv("PAYSTACK_PLAN_PRO") ?? null,
+      // Plan prices are defined in USD; Paystack charges in NGN. Override with
+      // PAYSTACK_USD_TO_NGN to track the real rate. Default is a deliberately
+      // recent-ballpark figure, NOT the old implicit "$1 = ₦100" that made a
+      // $9 plan charge ~₦900.
+      usdToNgn: Number(readEnv("PAYSTACK_USD_TO_NGN") ?? "1600") || 1600,
     },
     resend: {
       apiKey: readEnv("RESEND_API_KEY") ?? null,

@@ -73,6 +73,9 @@ export interface AnalyticsSummary {
   totalConversations: number;
   aiResponseRate: number;
   averageResponseTimeSeconds: number;
+  monthlyActivity: Array<{ month: string; conversations: number; leads: number }>;
+  channelMix: Array<{ channel: string; value: number }>;
+  responseTrend: Array<{ week: string; rate: number }>;
   leadConversion: number;
   salesInfluenced: number;
   mostActiveAgent: string;

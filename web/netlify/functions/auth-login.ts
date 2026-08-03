@@ -19,6 +19,7 @@ import {
   getWorkspaceRoleForUser,
 } from "./_shared/auth-store.ts";
 import { checkRateLimit, clientIp } from "./_shared/rate-limit.ts";
+import { isDatabaseUnavailableError } from "./_shared/db-errors.ts";
 import { log } from "./_shared/logger.ts";
 
 interface LoginBody {
@@ -58,7 +59,7 @@ async function handler(req: Request, _context: Context) {
 
   try {
     const ip = clientIp(req);
-    const limit = checkRateLimit(`login:${ip}`, 5, 15 * 60 * 1000);
+    const limit = await checkRateLimit(`login:${ip}`, 5, 15 * 60 * 1000);
     if (!limit.allowed) {
       return jsonResponse(
         { error: "Too many login attempts. Try again later." },
@@ -121,7 +122,7 @@ async function handler(req: Request, _context: Context) {
       function: "auth-login",
       error: message,
     });
-    if (/Missing DATABASE_URL|database|ECONNREFUSED|connect/i.test(message)) {
+    if (isDatabaseUnavailableError(error)) {
       return jsonResponse(
         {
           error:
