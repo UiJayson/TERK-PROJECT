@@ -43,6 +43,10 @@ export interface AppConfig {
   };
   auth: {
     secret: string;
+    /** Derives the AES key for encrypting stored channel tokens. Kept
+     * separate from `secret` so rotating the session-signing secret doesn't
+     * also break decryption of stored WhatsApp/Instagram tokens. */
+    secretEncryptionKey: string;
     defaultWorkspaceId: string;
     adminToken: string;
     adminAlertEmail: string | null;
@@ -69,6 +73,10 @@ const ENV_HELP: Record<string, string> = {
     "Missing DATABASE_URL. Get your Supabase connection string at supabase.com/dashboard → Project Settings → Database (Transaction pooler, port 6543).",
   AUTH_SECRET:
     "Missing AUTH_SECRET. Generate one with: openssl rand -base64 32",
+  SECRET_ENCRYPTION_KEY:
+    "Missing SECRET_ENCRYPTION_KEY. Generate one with: openssl rand -base64 32 " +
+    "(encrypts stored channel tokens — keep separate from AUTH_SECRET so rotating " +
+    "one doesn't break the other).",
   ANTHROPIC_API_KEY:
     "Missing ANTHROPIC_API_KEY. Get one at console.anthropic.com/settings/keys",
   OPENAI_API_KEY:
@@ -138,6 +146,23 @@ function resolveAuthSecret(isProduction: boolean): string {
   return DEV_AUTH_SECRET;
 }
 
+function resolveSecretEncryptionKey(isProduction: boolean, authSecret: string): string {
+  const key = readEnv("SECRET_ENCRYPTION_KEY");
+  if (key && isConfiguredSecret(key)) return key;
+
+  // Fall back to the auth secret so existing deployments keep working
+  // without a hard cutover. Warn in production so the gap is visible in
+  // logs until a dedicated key is set.
+  if (isProduction) {
+    console.warn(
+      "SECRET_ENCRYPTION_KEY not set — falling back to AUTH_SECRET for token " +
+        "encryption. Set a dedicated SECRET_ENCRYPTION_KEY (openssl rand -base64 32) " +
+        "so rotating AUTH_SECRET doesn't also break decryption of stored channel tokens.",
+    );
+  }
+  return authSecret;
+}
+
 function resolveAdminToken(isProduction: boolean): string {
   const token = readEnv("ADMIN_TOKEN");
   if (token && isConfiguredSecret(token)) return token;
@@ -181,6 +206,8 @@ export function loadConfig(): AppConfig {
     "DATABASE_URL",
     resolveDatabaseUrl() || undefined,
   );
+
+  const authSecret = resolveAuthSecret(isProduction);
 
   const provider = resolveProviderName(readEnv("AI_PROVIDER"));
   const anthropicApiKey = readEnv("ANTHROPIC_API_KEY") ?? null;
@@ -240,7 +267,8 @@ export function loadConfig(): AppConfig {
       dsn: readEnv("SENTRY_DSN") ?? null,
     },
     auth: {
-      secret: resolveAuthSecret(isProduction),
+      secret: authSecret,
+      secretEncryptionKey: resolveSecretEncryptionKey(isProduction, authSecret),
       defaultWorkspaceId: readEnv("DEFAULT_WORKSPACE_ID") ?? DEFAULT_WORKSPACE_ID,
       adminToken: resolveAdminToken(isProduction),
       adminAlertEmail: readEnv("ADMIN_ALERT_EMAIL") ?? null,
