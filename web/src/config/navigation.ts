@@ -34,6 +34,15 @@ export const navSections: NavSection[] = [
     ],
   },
   {
+    label: "Setup",
+    items: [
+      { label: "Onboarding", path: "/app/onboarding", icon: "book" },
+      { label: "Validation", path: "/app/validation", icon: "chat" },
+      { label: "Deployment gate", path: "/app/deployment", icon: "spark" },
+      { label: "Modules", path: "/app/modules", icon: "plug" },
+    ],
+  },
+  {
     label: "Workspace",
     items: [
       { label: "Integrations", path: "/app/integrations", icon: "plug" },

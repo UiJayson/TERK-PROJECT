@@ -74,8 +74,11 @@ let defaultsRegistered = false;
 
 function ensureDefaults(): void {
   if (!defaultsRegistered) {
-    registerDefaultHandlers();
+    // Set the flag BEFORE registering, because registerDefaultHandlers() calls
+    // subscribe() → ensureDefaults() re-entrantly. Guarding first turns those
+    // nested calls into plain handler appends instead of infinite recursion.
     defaultsRegistered = true;
+    registerDefaultHandlers();
   }
 }
 

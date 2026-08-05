@@ -39,6 +39,12 @@ import {
 } from "./sales-agent.ts";
 import type { CatalogProduct } from "./products.ts";
 import {
+  buildModuleAgentContext,
+  ensureKernelBooted,
+} from "./kernel/index.ts";
+import { retrieveTrack1 } from "./onboarding/retrieval/track1-structured.ts";
+import { getWizardStatus } from "./onboarding/wizard/wizard-controller.ts";
+import {
   collaborate,
   handoffConversation,
   resolveNextAgent,
@@ -360,6 +366,69 @@ export async function processWorkspaceMessage(input: {
     };
   }
 
+  // Two-track retrieval — Track 1 (structured DB) short-circuit.
+  // Hard rule: refund policy, business hours, pricing, and contacts are ALWAYS
+  // answered from the verified structured DB. No AI, no hallucination. Skipped
+  // on human_review path and while onboarding is incomplete (no data to answer
+  // from yet — falls through to the existing pipeline).
+  if (activeAgent !== "human_review") {
+    try {
+      const wizard = await getWizardStatus(input.workspaceId);
+      if (wizard.complete) {
+        const track1 = await retrieveTrack1(input.workspaceId, input.message);
+        if (track1.matched) {
+          const conversation = await appendConversationTurn({
+            workspaceId: input.workspaceId,
+            conversationId: input.conversationId,
+            channel,
+            agentUsed: activeAgent,
+            intent: routing.primary_intent,
+            routingReason: `Track 1 (structured DB): ${track1.category}`,
+            customerMessage: input.message,
+            agentReply: track1.answer,
+            collectedFields: input.collectedFields,
+          });
+          if (customerId) {
+            await persistTurn({
+              workspaceId: input.workspaceId,
+              customerId,
+              channel,
+              sessionId: resolveSessionId({
+                channel,
+                customerId,
+                conversationId: conversation.id,
+              }),
+              userMessage: input.message,
+              assistantMessage: track1.answer,
+              agent: activeAgent,
+              intent: routing.primary_intent,
+              collectedFields: input.collectedFields,
+            });
+          }
+          return {
+            reply: track1.answer,
+            agent: activeAgent,
+            intent: routing.primary_intent,
+            routing_reason: `Track 1 (structured DB): ${track1.category}`,
+            handoff: null,
+            citations: [{ source: "structured_db", topic: track1.category }],
+            action_log: [`Answered from verified structured data (${track1.category})`],
+            state: {
+              active_agent: activeAgent,
+              last_intent: routing.primary_intent,
+            },
+            mode: "ai",
+            conversation,
+            typing_delay_ms: calculateHumanDelay(track1.answer.length),
+            escalated: false,
+          };
+        }
+      }
+    } catch (error) {
+      console.warn("Track 1 retrieval failed, falling through to RAG:", error);
+    }
+  }
+
   let retrievedKnowledge: Awaited<ReturnType<typeof retrieveKnowledgeForQuery>> = [];
   try {
     retrievedKnowledge = await retrieveKnowledgeForQuery(
@@ -405,10 +474,20 @@ export async function processWorkspaceMessage(input: {
     salesExtraContext = [extraContext, collaborationBlock].filter(Boolean).join("\n\n");
   }
 
-  const promptExtra =
+  // Agent context routing (kernel spec §4): inject the combined system-prompt
+  // fragment for the modules this tenant has installed. Additive — a tenant
+  // with no installed modules contributes nothing, so existing behavior is
+  // unchanged. Modules the tenant has NOT installed never contribute context.
+  ensureKernelBooted();
+  const moduleContext = await buildModuleAgentContext(input.workspaceId, activeAgent);
+
+  const baseExtra =
     activeAgent === "sales"
       ? salesExtraContext
-      : [extraContext, collaborationBlock].filter(Boolean).join("\n\n") || undefined;
+      : [extraContext, collaborationBlock].filter(Boolean).join("\n\n");
+
+  const promptExtra =
+    [baseExtra, moduleContext.promptBlock].filter(Boolean).join("\n\n") || undefined;
 
   const { result, mode } = await runAgentTurn({
     agent: activeAgent,

@@ -22,6 +22,10 @@ const ConversationsPage = lazy(() => import("./pages/dashboard/ConversationsPage
 const DashboardHome = lazy(() => import("./pages/dashboard/DashboardHome").then((m) => ({ default: m.DashboardHome })));
 const IntegrationsPage = lazy(() => import("./pages/dashboard/IntegrationsPage").then((m) => ({ default: m.IntegrationsPage })));
 const KnowledgeBasePage = lazy(() => import("./pages/dashboard/KnowledgeBasePage").then((m) => ({ default: m.KnowledgeBasePage })));
+const ModulesPage = lazy(() => import("./pages/dashboard/ModulesPage").then((m) => ({ default: m.ModulesPage })));
+const OnboardingPage = lazy(() => import("./pages/dashboard/OnboardingPage").then((m) => ({ default: m.OnboardingPage })));
+const ValidationPage = lazy(() => import("./pages/dashboard/ValidationPage").then((m) => ({ default: m.ValidationPage })));
+const DeploymentPage = lazy(() => import("./pages/dashboard/DeploymentPage").then((m) => ({ default: m.DeploymentPage })));
 const LeadsPage = lazy(() => import("./pages/dashboard/LeadsPage").then((m) => ({ default: m.LeadsPage })));
 const SettingsPage = lazy(() => import("./pages/dashboard/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 const SystemHealthPage = lazy(() => import("./pages/dashboard/SystemHealthPage").then((m) => ({ default: m.SystemHealthPage })));
@@ -62,6 +66,10 @@ export default function App() {
                 <Route path="analytics" element={<AnalyticsPage />} />
                 <Route path="integrations" element={<IntegrationsPage />} />
                 <Route path="channels" element={<ChannelsPage />} />
+                <Route path="modules" element={<ModulesPage />} />
+                <Route path="onboarding" element={<OnboardingPage />} />
+                <Route path="validation" element={<ValidationPage />} />
+                <Route path="deployment" element={<DeploymentPage />} />
                 <Route path="billing" element={<BillingPage />} />
                 <Route path="system-health" element={<SystemHealthPage />} />
                 <Route path="admin/health" element={<AdminHealthPage />} />
