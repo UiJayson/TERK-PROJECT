@@ -1,162 +1,45 @@
+/**
+ * Sync front-door for Meta's Instagram DM webhook. Mirrors the WhatsApp
+ * front-door — signature verify, parse, fan out to the background function,
+ * return 200. See `whatsapp-webhook.ts` and plans/eager-sparking-kahan.md.
+ */
 import type { Config, Context } from "@netlify/functions";
-import { withObservability, setObservabilityContext, timedOperation } from "../../_shared/observability.ts";
-import { getConfig, isProduction } from "../../_shared/config.ts";
-import { createId } from "../../_shared/auth-crypto.ts";
-import { processWorkspaceMessage } from "../../_shared/ai-runtime.ts";
-import {
-  findWorkspaceByInstagramBusinessAccountId,
-  getInstagramSession,
-  matchesAnyInstagramWebhookVerifyToken,
-  recordInstagramChannelError,
-  saveInstagramConversationBlob,
-  saveInstagramSession,
-} from "../../_shared/channels-store.ts";
-import { tryAutoCaptureLead } from "../../_shared/lead-capture.ts";
+import { withObservability } from "../../_shared/observability.ts";
+import { getConfig, getSiteUrl, isProduction } from "../../_shared/config.ts";
+import { matchesAnyInstagramWebhookVerifyToken } from "../../_shared/channels-store.ts";
 import { verifyMetaWebhookSignature } from "../../_shared/whatsapp.ts";
 import {
-  sendDM,
-  InstagramSenderError,
-} from "../../_shared/instagram-sender.ts";
-import { waitForHumanDelay } from "../../_shared/response-delay.ts";
-
-interface InstagramIncomingMessage {
-  messageId: string;
-  senderId: string;
-  messageText: string;
-  timestamp: string;
-  businessAccountId: string;
-}
-
-interface InstagramWebhookPayload {
-  object?: string;
-  entry?: Array<{
-    id?: string;
-    messaging?: Array<{
-      sender?: { id?: string };
-      recipient?: { id?: string };
-      timestamp?: number;
-      message?: {
-        mid?: string;
-        text?: string;
-      };
-    }>;
-  }>;
-}
-
-function parseIncomingMessages(payload: InstagramWebhookPayload): InstagramIncomingMessage[] {
-  const results: InstagramIncomingMessage[] = [];
-  if (payload.object !== "instagram") return results;
-
-  for (const entry of payload.entry ?? []) {
-    const businessAccountId = entry.id;
-    if (!businessAccountId) continue;
-
-    for (const event of entry.messaging ?? []) {
-      const text = event.message?.text?.trim();
-      const senderId = event.sender?.id;
-      const messageId = event.message?.mid;
-      if (!text || !senderId || !messageId) continue;
-
-      results.push({
-        messageId,
-        senderId,
-        messageText: text,
-        timestamp: event.timestamp
-          ? new Date(event.timestamp).toISOString()
-          : new Date().toISOString(),
-        businessAccountId,
-      });
-    }
-  }
-
-  return results;
-}
+  parseIncomingMessages,
+  type InstagramIncomingMessage,
+  type InstagramWebhookPayload,
+} from "../../_shared/instagram-processor.ts";
 
 function getAppSecret(): string {
   return getConfig().whatsapp.appSecret ?? "";
 }
 
-async function handleIncomingMessage(message: InstagramIncomingMessage): Promise<void> {
-  const match = await findWorkspaceByInstagramBusinessAccountId(message.businessAccountId);
-  if (!match) {
-    console.warn(
-      `No workspace for Instagram business account ID: ${message.businessAccountId}`,
-    );
-    return;
-  }
+async function forwardToBackground(messages: InstagramIncomingMessage[]): Promise<void> {
+  if (messages.length === 0) return;
 
-  const { workspaceId, instagram } = match;
-  setObservabilityContext({ workspaceId });
+  const target = new URL("/internal/instagram/process", getSiteUrl()).toString();
+  const secret = getConfig().app.internalWebhookSecret;
+
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (secret) headers["x-internal-secret"] = secret;
 
   try {
-    await timedOperation(
-      { category: "webhook", operation: "instagram_message", workspaceId },
-      async () => {
-        const session = await getInstagramSession(workspaceId, message.senderId);
-
-        const result = await processWorkspaceMessage({
-          workspaceId,
-          message: message.messageText,
-          history: session.history,
-          state: session.state,
-          channel: "instagram",
-          conversationId: session.conversationId,
-          collectedFields: {
-            instagram_id: message.senderId,
-          },
-        });
-
-        if (result.conversation) {
-          await saveInstagramConversationBlob(
-            workspaceId,
-            result.conversation.id,
-            result.conversation,
-          );
-        }
-
-        await saveInstagramSession(workspaceId, message.senderId, {
-          conversationId: result.conversation?.id ?? session.conversationId,
-          state: result.state,
-          history: [
-            ...session.history,
-            { role: "user" as const, content: message.messageText },
-            { role: "assistant" as const, content: result.reply },
-          ].slice(-20),
-        });
-
-        await waitForHumanDelay(result.reply);
-
-        console.info(
-          `Sending Instagram reply to ${message.senderId} (workspace ${workspaceId})`,
-        );
-        await sendDM(
-          message.senderId,
-          result.reply,
-          instagram.accessToken,
-          instagram.businessAccountId,
-          { workspaceId, queueOnFailure: true },
-        );
-
-        await tryAutoCaptureLead({
-          workspaceId,
-          message: message.messageText,
-          channel: "instagram",
-          conversationId: result.conversation?.id,
-          agentUsed: result.agent,
-          collectedFields: {
-            instagram_id: message.senderId,
-          },
-        });
-      },
-    );
-  } catch (error) {
-    if (error instanceof InstagramSenderError) {
-      await recordInstagramChannelError(workspaceId, error);
-      if (error.isTokenExpired) {
-        console.error("Instagram token expired — notify workspace admin via Integrations");
-      }
+    const response = await fetch(target, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ messages }),
+    });
+    if (!response.ok && response.status !== 202) {
+      console.warn(
+        `instagram background dispatch returned ${response.status}: ${await response.text().catch(() => "")}`,
+      );
     }
-    throw error;
+  } catch (error) {
+    console.error("Failed to dispatch Instagram messages to background:", error);
   }
 }
 
@@ -202,15 +85,7 @@ async function handler(req: Request, _context: Context) {
     try {
       const payload = JSON.parse(rawBody) as InstagramWebhookPayload;
       const messages = parseIncomingMessages(payload);
-
-      for (const message of messages) {
-        try {
-          await handleIncomingMessage(message);
-        } catch (error) {
-          console.error("Instagram message handling failed:", error);
-        }
-      }
-
+      await forwardToBackground(messages);
       return new Response("OK", { status: 200 });
     } catch (error) {
       console.error("Instagram webhook error:", error);

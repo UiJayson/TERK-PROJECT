@@ -60,6 +60,10 @@ export interface AppConfig {
   };
   app: {
     siteUrl: string;
+    /** Shared secret authenticating the sync-webhook → background-function
+     * hop. Sync front-doors send it in `x-internal-secret`; background
+     * functions reject requests without it in production. Null in dev. */
+    internalWebhookSecret: string | null;
   };
   runtime: {
     nodeEnv: string;
@@ -182,6 +186,22 @@ function resolveSiteUrl(): string {
   );
 }
 
+function resolveInternalWebhookSecret(isProduction: boolean): string | null {
+  const raw = readEnv("INTERNAL_WEBHOOK_SECRET");
+  if (raw && isConfiguredSecret(raw)) return raw;
+  // In production the background function refuses unauthenticated calls;
+  // in dev (and when the secret is missing) we let the hop through so
+  // `netlify dev` still works end-to-end.
+  if (isProduction) {
+    console.warn(
+      "INTERNAL_WEBHOOK_SECRET not set — background webhook processors " +
+        "will refuse the sync→background hop. Generate one with " +
+        "`openssl rand -base64 32` and set it in Netlify env vars.",
+    );
+  }
+  return null;
+}
+
 /** True when a value is present and not a documented placeholder/example. */
 export function isConfiguredSecret(value: string | null | undefined): boolean {
   if (!value?.trim()) return false;
@@ -282,6 +302,7 @@ export function loadConfig(): AppConfig {
     },
     app: {
       siteUrl: resolveSiteUrl(),
+      internalWebhookSecret: resolveInternalWebhookSecret(isProduction),
     },
     runtime: {
       nodeEnv,
